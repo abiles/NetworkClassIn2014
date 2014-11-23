@@ -91,6 +91,7 @@ unsigned WINAPI RequestHandler(void* arg)
 	char fileName[BUF_SMALL];
 
 	recv(hClntSock, buf, BUF_SIZE, 0);
+
 	if (strstr(buf, "HTTP/") == NULL)
 	{
 		SendErrorMSG(hClntSock, ERROR_400_BAD_REQUEST);
