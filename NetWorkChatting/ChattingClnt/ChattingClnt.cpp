@@ -18,6 +18,7 @@ void ErrorHandling(char* msg);
 void gotoxy(int x, int y);
 
 char name[NAME_SIZE] = "[DEFAULT]";
+char nickName[NAME_SIZE];
 char msg[BUF_SIZE];
 
 int main(int argc, char* argv[])
@@ -38,6 +39,10 @@ int main(int argc, char* argv[])
 #else
 		port = 14000;
 		ip = "127.0.0.1";
+		puts("Chatting Start!\n");
+		puts("PleaseInputName : ");
+		scanf("%s", nickName);
+		sprintf(name, "[%s]", nickName);
 
 #endif
 	}
@@ -79,6 +84,7 @@ unsigned WINAPI SendMsg(void* arg)
 {
 	SOCKET hSock = *((SOCKET*)arg);
 	char nameMsg[NAME_SIZE + BUF_SIZE];
+	
 
 	while (true)
 	{
@@ -101,6 +107,8 @@ unsigned WINAPI RecvMsg(void* arg)
 	SOCKET hSock = *((SOCKET*)arg);
 	char nameMsg[NAME_SIZE + BUF_SIZE];
 	int strLen;
+	int cursorHeight = 5;
+	int sendCursorHeihgt = 20;
 
 	while (true)
 	{
@@ -109,8 +117,9 @@ unsigned WINAPI RecvMsg(void* arg)
 			return -1;
 		nameMsg[strLen] = 0;
 		fputs(nameMsg, stdout);
+		cursorHeight++;
+		sendCursorHeihgt++;
 	}
-
 	return 0;
 }
 
