@@ -97,10 +97,10 @@ int main(int argc, char* argv[])
 	servAdr.sin_addr.s_addr = htonl(INADDR_ANY);
 	servAdr.sin_port = htons(port);
 
-	printf("bind %d\n",
-		   bind(hServSock, (SOCKADDR*)&servAdr, sizeof(servAdr)));
-	printf("listen %d\n",
-		   listen(hServSock, QUEUESIZE));
+	if (bind(hServSock, (SOCKADDR*)&servAdr, sizeof(servAdr)) == SOCKET_ERROR)
+		ErrorHandling("bind() error!");
+	if (listen(hServSock, QUEUESIZE) == SOCKET_ERROR)
+		ErrorHandling("listen() error");
 
 	while (true)
 	{
@@ -110,7 +110,7 @@ int main(int argc, char* argv[])
 
 		//연결 요청한 클라이언트의 주소와 주소의 길이를 담아온다
 		//성공시 생성된 소켓의 핸들 반환
-		printf("accept\n");
+		printf("accept possilbe\n");
 		//그럼 만들어진 얘가 여러개 일 수 있으니까 얘를 저장할 수 있어야돼 
 		hClntSock = accept(hServSock, (SOCKADDR*)&clntAdr, &addrLen);
 
@@ -151,8 +151,23 @@ int main(int argc, char* argv[])
 			ioInfo->wsaBuf.len = BUF_SIZE;
 			ioInfo->wsaBuf.buf = ioInfo->buffer;
 			ioInfo->rwMode = READ;
-			WSARecv(handleInfo->hClntSock, &(ioInfo->wsaBuf), 1,
-					&recvBytes, &flags, &(ioInfo->overlapped), NULL);
+
+			//SOKET_ERROR라면 아직 보낸 파일을 전부 받지 못한 상태
+			if (WSARecv(handleInfo->hClntSock, &(ioInfo->wsaBuf), 1,
+					&recvBytes, &flags, &(ioInfo->overlapped), NULL) == SOCKET_ERROR)
+			{
+				//데이터 전송이 완료되지 않았지만 진행중인 상태
+				if (WSAGetLastError() == WSA_IO_PENDING)
+				{
+					WSAWaitForMultipleEvents(1, &(ioInfo->overlapped).hEvent, TRUE, WSA_INFINITE, FALSE);
+					WSAGetOverlappedResult(handleInfo->hClntSock, &(ioInfo->overlapped), &recvBytes,
+										   FALSE, NULL);
+				}
+				else
+				{
+					ErrorHandling("WSARecv() error!");
+				}
+			}
 		}
 
 	}
@@ -215,8 +230,21 @@ unsigned int WINAPI ThreadMain(LPVOID pComport)
 			{
 				if (clntSocketes[i] != 0 && clntSocketes[i] != sock)
 				{
-					WSASend(clntSocketes[i], &(ioInfo->wsaBuf), 1, NULL, 0,
-							&(ioInfo->overlapped), NULL);
+
+					if (WSASend(clntSocketes[i], &(ioInfo->wsaBuf), 1, NULL, 0,
+							&(ioInfo->overlapped), NULL) == SOCKET_ERROR)
+					{
+						if (WSAGetLastError() == WSA_IO_PENDING)
+						{
+							WSAWaitForMultipleEvents(1, &(ioInfo->overlapped).hEvent, TRUE, WSA_INFINITE, FALSE);
+							WSAGetOverlappedResult(handleInfo->hClntSock, &(ioInfo->overlapped), NULL,
+												   FALSE, NULL);
+						}
+						else
+						{
+							ErrorHandling("WSARecv() error!");
+						}
+					}
 				}
 			}
 			LeaveCriticalSection(&globalCriticalSection);
@@ -229,6 +257,8 @@ unsigned int WINAPI ThreadMain(LPVOID pComport)
 			ioInfo->rwMode = READ;
 			WSARecv(sock, &(ioInfo->wsaBuf), 1, NULL,
 					&flags, &(ioInfo->overlapped), NULL);
+
+
 		}
 		else
 		{
